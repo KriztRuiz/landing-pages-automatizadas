@@ -18,7 +18,8 @@ import { createClient } from "@/lib/supabase/server";
  * - requisitos mínimos para publicar;
  * - botón para publicar;
  * - botón para despublicar;
- * - enlace público cuando la landing ya está publicada.
+ * - enlace público cuando la landing ya está publicada;
+ * - acceso directo a métricas básicas de contacto.
  */
 
 type DashboardBusiness = {
@@ -382,10 +383,17 @@ async function DashboardContent({
           >
             Editar contactos
           </Link>
+
+          <Link
+            href="/dashboard/metrics"
+            className="inline-flex justify-center rounded-lg border px-4 py-2 text-sm font-medium transition hover:bg-muted"
+          >
+            Ver métricas
+          </Link>
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Link
           href="/dashboard/business"
           className="rounded-xl border bg-card p-5 shadow-sm transition hover:bg-muted/40"
@@ -404,6 +412,17 @@ async function DashboardContent({
           <h2 className="font-semibold">Métodos de contacto</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Administra teléfono, WhatsApp, correo, redes y enlaces aprobados.
+          </p>
+        </Link>
+
+        <Link
+          href="/dashboard/metrics"
+          className="rounded-xl border bg-card p-5 shadow-sm transition hover:bg-muted/40"
+        >
+          <h2 className="font-semibold">Métricas de contacto</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Consulta clics por teléfono, WhatsApp, email, redes, sitio web y
+            enlaces personalizados.
           </p>
         </Link>
 

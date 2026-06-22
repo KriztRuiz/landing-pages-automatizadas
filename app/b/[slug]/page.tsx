@@ -15,10 +15,11 @@ import { ContactHub, type ContactHubMethod } from "@/components/contact-hub";
  * 2. Solo lo muestra si is_published = true.
  * 3. Muestra los datos públicos del negocio.
  * 4. Muestra ContactHub.
- * 5. Solo carga contactos activos y aprobados:
+ * 5. Envía businessId a ContactHub para poder registrar métricas de clics.
+ * 6. Solo carga contactos activos y aprobados:
  *    - is_enabled = true
  *    - is_verified = true
- * 6. Oculta negocios no publicados usando notFound().
+ * 7. Oculta negocios no publicados usando notFound().
  *
  * Nota importante para Next.js 16:
  * Con Cache Components activo, las consultas dinámicas deben ir dentro
@@ -348,7 +349,14 @@ async function PublicLandingContent({ params }: PublicLandingPageProps) {
       <BusinessDetails business={business} />
 
       <section className="rounded-3xl border bg-card p-6 shadow-sm md:p-8">
-        <ContactHub contacts={contacts ?? []} />
+        {/*
+          ContactHub renderiza los botones/enlaces de contacto.
+
+          Para registrar métricas, le pasamos el id del negocio publicado.
+          El componente ContactHub debe usar este businessId junto con cada
+          contact.id y contact.type cuando el visitante haga clic.
+        */}
+        <ContactHub businessId={business.id} contacts={contacts ?? []} />
       </section>
     </main>
   );

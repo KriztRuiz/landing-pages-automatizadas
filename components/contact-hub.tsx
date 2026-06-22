@@ -7,11 +7,23 @@
  * Este componente recibe métodos de contacto ya filtrados.
  * Es decir: quien lo use debe mandar solo contactos activos y aprobados.
  *
+ * En Fase 7 agregamos métricas básicas:
+ * - si recibe businessId, registra clics;
+ * - si NO recibe businessId, solo muestra enlaces normales.
+ *
+ * Esto permite que:
+ * - la landing pública registre métricas;
+ * - la vista previa NO registre métricas falsas.
+ *
  * Para mantener el PMV simple:
  * - no usamos librerías extra;
  * - no usamos estado de React;
  * - usamos <details> y <summary> para abrir/cerrar el panel.
  */
+
+import type { ReactNode } from "react";
+import { TrackedContactLink } from "@/components/tracked-contact-link";
+import { isContactType } from "@/lib/contact-types";
 
 export type ContactHubMethod = {
   id: string;
@@ -22,7 +34,22 @@ export type ContactHubMethod = {
 };
 
 type ContactHubProps = {
+  /**
+   * businessId es opcional porque la vista previa no debe contar clics.
+   *
+   * Uso correcto:
+   * - Landing pública: <ContactHub businessId={business.id} contacts={contacts} />
+   * - Preview: <ContactHub contacts={contacts} />
+   */
+  businessId?: string;
   contacts: ContactHubMethod[];
+};
+
+type ContactLinkProps = {
+  businessId?: string;
+  contact: ContactHubMethod;
+  className: string;
+  children: ReactNode;
 };
 
 /**
@@ -73,27 +100,61 @@ function getContactIcon(type: string | null): string {
  * tel: y mailto: deben abrirse normal.
  * URLs http/https pueden abrir en otra pestaña.
  */
-function getAnchorProps(url: string | null) {
-  if (!url) {
-    return {
-      href: "#",
-    };
-  }
-
+function getLinkTarget(url: string): "_self" | "_blank" {
   if (url.startsWith("tel:") || url.startsWith("mailto:")) {
-    return {
-      href: url,
-    };
+    return "_self";
   }
 
-  return {
-    href: url,
-    target: "_blank",
-    rel: "noreferrer",
-  };
+  return "_blank";
 }
 
-export function ContactHub({ contacts }: ContactHubProps) {
+/**
+ * Renderiza un enlace de contacto.
+ *
+ * Caso 1:
+ * Si hay businessId y el tipo de contacto es válido,
+ * usamos TrackedContactLink para registrar la métrica.
+ *
+ * Caso 2:
+ * Si NO hay businessId, usamos <a> normal.
+ * Esto sirve para la vista previa y evita métricas falsas.
+ */
+function ContactLink({
+  businessId,
+  contact,
+  className,
+  children,
+}: ContactLinkProps) {
+  if (!contact.url) {
+    return null;
+  }
+
+  const target = getLinkTarget(contact.url);
+  const rel = target === "_blank" ? "noopener noreferrer" : undefined;
+
+  if (businessId && isContactType(contact.type)) {
+    return (
+      <TrackedContactLink
+        href={contact.url}
+        businessId={businessId}
+        contactMethodId={contact.id}
+        contactType={contact.type}
+        target={target}
+        className={className}
+      >
+        {children}
+      </TrackedContactLink>
+    );
+  }
+
+  return (
+    <a href={contact.url} target={target} rel={rel} className={className}>
+      {children}
+    </a>
+  );
+}
+
+export function ContactHub({ businessId, contacts }: ContactHubProps) {
   if (contacts.length === 0) {
     return (
       <section className="rounded-2xl border border-dashed bg-muted/20 p-5">
@@ -117,9 +178,10 @@ export function ContactHub({ contacts }: ContactHubProps) {
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {contacts.map((contact) => (
-            <a
+            <ContactLink
               key={contact.id}
-              {...getAnchorProps(contact.url)}
+              businessId={businessId}
+              contact={contact}
               className="flex items-center gap-3 rounded-xl border bg-background p-4 text-sm font-medium hover:bg-muted"
             >
               <span className="flex h-9 w-9 items-center justify-center rounded-full border bg-muted text-base">
@@ -135,7 +197,7 @@ export function ContactHub({ contacts }: ContactHubProps) {
                   {getContactTypeLabel(contact.type)}
                 </span>
               </span>
-            </a>
+            </ContactLink>
           ))}
         </div>
       </section>
@@ -149,9 +211,10 @@ export function ContactHub({ contacts }: ContactHubProps) {
           <p className="text-sm font-medium">Elige un canal</p>
 
           {contacts.map((contact) => (
-            <a
+            <ContactLink
               key={contact.id}
-              {...getAnchorProps(contact.url)}
+              businessId={businessId}
+              contact={contact}
               className="flex items-center gap-3 rounded-xl border p-3 text-sm font-medium hover:bg-muted"
             >
               <span className="flex h-8 w-8 items-center justify-center rounded-full border bg-muted">
@@ -159,7 +222,7 @@ export function ContactHub({ contacts }: ContactHubProps) {
               </span>
 
               <span>{contact.label || getContactTypeLabel(contact.type)}</span>
-            </a>
+            </ContactLink>
           ))}
         </div>
       </details>
