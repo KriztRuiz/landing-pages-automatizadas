@@ -5,24 +5,8 @@ import { redirect } from "next/navigation";
 import { ContactHub, type ContactHubMethod } from "@/components/contact-hub";
 import { createClient } from "@/lib/supabase/server";
 
-/**
- * Archivo afectado:
- * app/dashboard/preview/page.tsx
- *
- * Esta página muestra una vista previa privada de la landing.
- *
- * En esta fase agregamos ContactHub:
- * - se leen métodos de contacto del negocio;
- * - se filtran solo activos y aprobados;
- * - se muestran dentro de la preview y como botón flotante.
- */
+type LandingVisualMode = "classic" | "modern" | "compact";
 
-/**
- * Tipo mínimo del negocio para la vista previa.
- *
- * No usamos todos los campos de la tabla todavía.
- * Solo los necesarios para que el dueño confirme cómo se verá su landing.
- */
 type BusinessPreview = {
   id: string;
   name: string | null;
@@ -41,12 +25,143 @@ type BusinessPreview = {
   is_published: boolean | null;
 };
 
-/**
- * Pantalla temporal mientras Next/Supabase revisan sesión y datos.
- *
- * En Next.js 16 con Cache Components, las lecturas privadas como cookies,
- * sesión o datos del usuario deben quedar dentro de un componente con Suspense.
- */
+type LandingVisualStyles = {
+  page: string;
+  container: string;
+  previewPanel: string;
+  previewTitle: string;
+  previewText: string;
+  previewBadge: string;
+  hero: string;
+  category: string;
+  title: string;
+  shortDescription: string;
+  contentGrid: string;
+  section: string;
+  sectionTitle: string;
+  mutedText: string;
+  serviceList: string;
+  serviceItem: string;
+  primaryButton: string;
+  secondaryButton: string;
+  warningBox: string;
+};
+
+function normalizeLandingVisualMode(
+  value: string | null | undefined,
+): LandingVisualMode {
+  if (value === "modern") return "modern";
+  if (value === "compact") return "compact";
+
+  return "classic";
+}
+
+function getVisualModeLabel(mode: LandingVisualMode): string {
+  if (mode === "modern") return "Moderno";
+  if (mode === "compact") return "Compacto";
+
+  return "Clásico";
+}
+
+function getLandingVisualStyles(mode: LandingVisualMode): LandingVisualStyles {
+  if (mode === "modern") {
+    return {
+      page: "min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white",
+      container:
+        "mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8",
+      previewPanel:
+        "lp-fade-up rounded-3xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur",
+      previewTitle: "text-3xl font-bold tracking-tight text-white",
+      previewText: "text-slate-300",
+      previewBadge:
+        "inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-white backdrop-blur",
+      hero: "lp-fade-up overflow-hidden rounded-3xl border border-white/10 bg-white/10 px-6 py-10 shadow-2xl backdrop-blur md:px-10",
+      category:
+        "inline-flex rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-950",
+      title: "mt-3 text-4xl font-bold tracking-tight text-white md:text-6xl",
+      shortDescription: "mt-4 max-w-2xl text-lg leading-8 text-slate-200",
+      contentGrid: "grid gap-5 md:grid-cols-2",
+      section:
+        "lp-fade-up rounded-3xl border border-white/10 bg-white/10 p-6 shadow-xl backdrop-blur",
+      sectionTitle: "text-xl font-bold text-white",
+      mutedText: "text-slate-300",
+      serviceList: "mt-4 grid gap-3 sm:grid-cols-2",
+      serviceItem:
+        "lp-soft-interaction rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-slate-100 shadow-lg hover:shadow-2xl",
+      primaryButton:
+        "lp-soft-interaction inline-flex rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-950 shadow-lg hover:shadow-xl",
+      secondaryButton:
+        "lp-soft-interaction inline-flex rounded-2xl border border-white/20 px-4 py-2 text-sm font-bold text-white hover:bg-white/10",
+      warningBox:
+        "lp-fade-up rounded-2xl border border-yellow-300/30 bg-yellow-300/10 p-4 text-sm text-yellow-100",
+    };
+  }
+
+  if (mode === "compact") {
+    return {
+      page: "min-h-screen bg-slate-100 text-slate-950",
+      container:
+        "mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-4 py-6 sm:px-6",
+      previewPanel:
+        "lp-fade-up rounded-2xl border border-slate-200 bg-white p-5 shadow-sm",
+      previewTitle: "text-2xl font-bold tracking-tight text-slate-950",
+      previewText: "text-slate-600",
+      previewBadge:
+        "inline-flex rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700",
+      hero: "lp-fade-up rounded-2xl border border-slate-200 bg-white px-5 py-6 shadow-sm",
+      category:
+        "inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700",
+      title: "mt-3 text-3xl font-bold tracking-tight text-slate-950 md:text-4xl",
+      shortDescription: "mt-3 text-base leading-7 text-slate-700",
+      contentGrid: "grid gap-4",
+      section:
+        "lp-fade-up rounded-2xl border border-slate-200 bg-white p-5 shadow-sm",
+      sectionTitle: "text-lg font-bold text-slate-950",
+      mutedText: "text-slate-600",
+      serviceList: "mt-4 grid gap-2",
+      serviceItem:
+        "lp-soft-interaction rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800",
+      primaryButton:
+        "lp-soft-interaction inline-flex rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white shadow-sm",
+      secondaryButton:
+        "lp-soft-interaction inline-flex rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-950 hover:bg-slate-50",
+      warningBox:
+        "lp-fade-up rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-900",
+    };
+  }
+
+  return {
+    page: "min-h-screen bg-slate-50 text-slate-950",
+    container:
+      "mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-10 sm:px-6",
+    previewPanel:
+      "lp-fade-up rounded-2xl border border-slate-200 bg-white p-6 shadow-sm",
+    previewTitle: "text-3xl font-bold tracking-tight text-slate-950",
+    previewText: "text-slate-600",
+    previewBadge:
+      "inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm",
+    hero: "lp-fade-up rounded-3xl border border-slate-200 bg-white px-6 py-10 shadow-sm md:px-10",
+    category:
+      "inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700",
+    title: "mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl",
+    shortDescription: "mt-4 max-w-2xl text-lg leading-8 text-slate-700",
+    contentGrid: "grid gap-6 md:grid-cols-2",
+    section:
+      "lp-fade-up rounded-3xl border border-slate-200 bg-white p-6 shadow-sm",
+    sectionTitle: "text-xl font-bold text-slate-950",
+    mutedText: "text-slate-600",
+    serviceList: "mt-4 grid gap-3 sm:grid-cols-2",
+    serviceItem:
+      "lp-soft-interaction rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 hover:shadow-md",
+    primaryButton:
+      "lp-soft-interaction inline-flex rounded-2xl bg-slate-950 px-4 py-2 text-sm font-bold text-white shadow-sm hover:shadow-md",
+    secondaryButton:
+      "lp-soft-interaction inline-flex rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-950 hover:bg-slate-50",
+    warningBox:
+      "lp-fade-up rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-900",
+  };
+}
+
 function PreviewLoading() {
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-10">
@@ -67,31 +182,16 @@ function PreviewLoading() {
   );
 }
 
-/**
- * Convierte el modo visual interno en texto entendible.
- *
- * Más adelante estos modos cambiarán estilos reales de landing.
- * En esta fase solo los mostramos para confirmar que el dato se guarda.
- */
-function getVisualModeLabel(visualMode: string | null): string {
-  if (visualMode === "modern") return "Moderno";
-  if (visualMode === "compact") return "Compacto";
-
-  return "Clásico";
-}
-
-/**
- * Componente visual de la landing privada.
- *
- * Esta NO es la landing pública final.
- * Solo es una vista previa dentro del panel privado.
- */
 function PreviewCard({
   business,
-  contacts,
+  visualMode,
+  visualModeLabel,
+  visualStyles,
 }: {
   business: BusinessPreview;
-  contacts: ContactHubMethod[];
+  visualMode: LandingVisualMode;
+  visualModeLabel: string;
+  visualStyles: LandingVisualStyles;
 }) {
   const services = business.services ?? [];
 
@@ -104,45 +204,96 @@ function PreviewCard({
     .filter(Boolean)
     .join(", ");
 
+  const isCompact = visualMode === "compact";
+
   return (
-    <article className="overflow-hidden rounded-3xl border bg-card shadow-sm">
-      <section className="border-b bg-muted/30 px-6 py-10 md:px-10">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+    <article className="space-y-6">
+      <section className={visualStyles.hero}>
+        <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
           <div>
-            <p className="text-sm font-medium text-muted-foreground">
+            <p className={visualStyles.category}>
               {business.category || "Categoría pendiente"}
             </p>
 
-            <h2 className="mt-2 text-4xl font-bold tracking-tight">
+            <h2 className={visualStyles.title}>
               {business.name || "Nombre del negocio"}
             </h2>
 
-            <p className="mt-4 max-w-2xl text-lg text-muted-foreground">
+            <p className={visualStyles.shortDescription}>
               {business.short_description ||
                 "Aquí aparecerá la descripción corta de tu negocio."}
             </p>
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link
+                href="/dashboard/contacts"
+                className={visualStyles.primaryButton}
+              >
+                Revisar contactos
+              </Link>
+
+              <Link
+                href="/dashboard/business"
+                className={visualStyles.secondaryButton}
+              >
+                Editar información
+              </Link>
+            </div>
           </div>
 
-          <div className="rounded-full border bg-background px-4 py-2 text-sm font-medium">
-            Modo {getVisualModeLabel(business.visual_mode)}
+          <div className={visualStyles.previewBadge}>
+            Modo {visualModeLabel}
           </div>
         </div>
       </section>
 
-      <section className="grid gap-8 px-6 py-8 md:grid-cols-2 md:px-10">
-        <div>
-          <h3 className="text-lg font-semibold">Sobre el negocio</h3>
+      <section className={visualStyles.contentGrid}>
+        {!isCompact ? (
+          <div className={visualStyles.section}>
+            <h3 className={visualStyles.sectionTitle}>Sobre el negocio</h3>
 
-          <p className="mt-3 whitespace-pre-line text-sm leading-6 text-muted-foreground">
-            {business.long_description ||
-              "Cuando agregues una descripción larga, aparecerá aquí para dar más contexto a tus visitantes."}
+            <p
+              className={`mt-3 whitespace-pre-line text-sm leading-6 ${visualStyles.mutedText}`}
+            >
+              {business.long_description ||
+                "Cuando agregues una descripción larga, aparecerá aquí para dar más contexto a tus visitantes."}
+            </p>
+          </div>
+        ) : null}
+
+        <div className={visualStyles.section}>
+          <h3 className={visualStyles.sectionTitle}>Servicios principales</h3>
+
+          {services.length > 0 ? (
+            <ul className={visualStyles.serviceList}>
+              {services.map((service) => (
+                <li key={service} className={visualStyles.serviceItem}>
+                  {service}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className={`mt-3 text-sm leading-6 ${visualStyles.mutedText}`}>
+              Aquí aparecerán los servicios principales del negocio.
+            </p>
+          )}
+        </div>
+
+        <div className={visualStyles.section}>
+          <h3 className={visualStyles.sectionTitle}>Horarios</h3>
+
+          <p
+            className={`mt-3 whitespace-pre-line text-sm leading-6 ${visualStyles.mutedText}`}
+          >
+            {business.opening_hours ||
+              "Aquí aparecerán los horarios de atención."}
           </p>
         </div>
 
-        <div>
-          <h3 className="text-lg font-semibold">Ubicación</h3>
+        <div className={visualStyles.section}>
+          <h3 className={visualStyles.sectionTitle}>Ubicación</h3>
 
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          <p className={`mt-3 text-sm leading-6 ${visualStyles.mutedText}`}>
             {locationText ||
               "Aquí aparecerá la dirección o zona de atención del negocio."}
           </p>
@@ -152,60 +303,38 @@ function PreviewCard({
               href={business.location_url}
               target="_blank"
               rel="noreferrer"
-              className="mt-4 inline-flex rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted"
+              className={`mt-4 ${visualStyles.secondaryButton}`}
             >
               Ver ubicación autorizada
             </a>
           ) : null}
         </div>
 
-        <div>
-          <h3 className="text-lg font-semibold">Horarios</h3>
+        {isCompact && business.long_description ? (
+          <div className={visualStyles.section}>
+            <h3 className={visualStyles.sectionTitle}>Sobre el negocio</h3>
 
-          <p className="mt-3 whitespace-pre-line text-sm leading-6 text-muted-foreground">
-            {business.opening_hours ||
-              "Aquí aparecerán los horarios de atención."}
-          </p>
-        </div>
-
-        <div>
-          <h3 className="text-lg font-semibold">Servicios principales</h3>
-
-          {services.length > 0 ? (
-            <ul className="mt-3 space-y-2">
-              {services.map((service) => (
-                <li
-                  key={service}
-                  className="rounded-lg border bg-background px-3 py-2 text-sm"
-                >
-                  {service}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              Aquí aparecerán los servicios principales del negocio.
+            <p
+              className={`mt-3 whitespace-pre-line text-sm leading-6 ${visualStyles.mutedText}`}
+            >
+              {business.long_description}
             </p>
-          )}
-        </div>
+          </div>
+        ) : null}
 
-        <div className="md:col-span-2">
-          <ContactHub contacts={contacts} />
+        <div className={visualStyles.section}>
+          <h3 className={visualStyles.sectionTitle}>Centro de contacto</h3>
+
+          <p className={`mt-2 text-sm ${visualStyles.mutedText}`}>
+            El botón flotante de contacto aparece fijo en la pantalla. En la
+            landing pública solo mostrará métodos activos y aprobados.
+          </p>
         </div>
       </section>
     </article>
   );
 }
 
-/**
- * Contenido privado real de /dashboard/preview.
- *
- * Aquí:
- * 1. Revisamos que exista sesión.
- * 2. Obtenemos el negocio del usuario.
- * 3. Obtenemos contactos activos y aprobados.
- * 4. Mostramos una vista previa privada aunque todavía no esté publicado.
- */
 async function PreviewContent() {
   const supabase = await createClient();
 
@@ -217,12 +346,6 @@ async function PreviewContent() {
     redirect("/auth/login");
   }
 
-  /**
-   * Leemos únicamente el negocio del usuario autenticado.
-   *
-   * RLS ya protege la tabla, pero también filtramos por owner_id
-   * para que la intención sea clara en el código.
-   */
   const { data: business, error: businessError } = await supabase
     .from("businesses")
     .select(
@@ -296,14 +419,10 @@ async function PreviewContent() {
     );
   }
 
-  /**
-   * Aquí está la regla central de ContactHub:
-   *
-   * La preview solo muestra métodos activos y aprobados.
-   *
-   * Si un contacto está desactivado o no aprobado,
-   * puede existir en /dashboard/contacts, pero NO aparece aquí.
-   */
+  const visualMode = normalizeLandingVisualMode(business.visual_mode);
+  const visualModeLabel = getVisualModeLabel(visualMode);
+  const visualStyles = getLandingVisualStyles(visualMode);
+
   const { data: contacts, error: contactsError } = await supabase
     .from("contact_methods")
     .select(
@@ -323,65 +442,83 @@ async function PreviewContent() {
     .returns<ContactHubMethod[]>();
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-10">
-      <section className="rounded-2xl border bg-card p-6 shadow-sm">
-        <p className="text-sm font-medium text-muted-foreground">
-          Vista previa
-        </p>
+    <main className={visualStyles.page}>
+      <div className={visualStyles.container}>
+        <section className={visualStyles.previewPanel}>
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className={visualStyles.previewBadge}>
+                Vista previa · Modo {visualModeLabel}
+              </p>
 
-        <h1 className="mt-2 text-3xl font-bold tracking-tight">
-          Así se verá tu landing
-        </h1>
+              <h1 className={`mt-3 ${visualStyles.previewTitle}`}>
+                Así se verá tu landing
+              </h1>
 
-        <p className="mt-3 max-w-2xl text-muted-foreground">
-          Esta vista previa usa tus datos guardados. Puedes revisarla antes de
-          publicar la landing.
-        </p>
+              <p className={`mt-3 max-w-2xl ${visualStyles.previewText}`}>
+                Esta vista previa usa tus datos guardados. Puedes revisarla
+                antes de publicar la landing.
+              </p>
+            </div>
 
-        <div className="mt-5 flex flex-wrap gap-3">
-          <Link
-            href="/dashboard/business"
-            className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted"
-          >
-            Editar negocio
-          </Link>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/dashboard/business"
+                className={visualStyles.secondaryButton}
+              >
+                Editar negocio
+              </Link>
 
-          <Link
-            href="/dashboard/contacts"
-            className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted"
-          >
-            Editar contactos
-          </Link>
+              <Link
+                href="/dashboard/contacts"
+                className={visualStyles.secondaryButton}
+              >
+                Editar contactos
+              </Link>
 
-          {business.slug ? (
-            <Link
-              href={`/b/${business.slug}`}
-              className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted"
-            >
-              Ver URL pública
-            </Link>
-          ) : null}
-        </div>
-      </section>
-
-      {contactsError ? (
-        <section className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-900">
-          <p className="font-medium">No se pudieron cargar los contactos.</p>
-          <p className="mt-1 text-xs">{contactsError.message}</p>
+              {business.slug ? (
+                <Link
+                  href={`/b/${business.slug}`}
+                  className={visualStyles.secondaryButton}
+                >
+                  Ver URL pública
+                </Link>
+              ) : null}
+            </div>
+          </div>
         </section>
-      ) : null}
 
-      <PreviewCard business={business} contacts={contacts ?? []} />
+        {contactsError ? (
+          <section className={visualStyles.warningBox}>
+            <p className="font-medium">No se pudieron cargar los contactos.</p>
+            <p className="mt-1 text-xs">{contactsError.message}</p>
+          </section>
+        ) : null}
+
+        <PreviewCard
+          business={business}
+          visualMode={visualMode}
+          visualModeLabel={visualModeLabel}
+          visualStyles={visualStyles}
+        />
+      </div>
+
+      {/* 
+        Importante:
+        ContactHub se renderiza fuera de las tarjetas animadas.
+
+        Si lo colocamos dentro de una sección con transform,
+        su position: fixed puede dejar de comportarse como flotante global.
+      */}
+      <ContactHub
+  contacts={contacts ?? []}
+  visualMode={visualMode}
+  showInlinePanel={false}
+/>
     </main>
   );
 }
 
-/**
- * Página principal de /dashboard/preview.
- *
- * No lee datos directamente.
- * Solo envuelve el contenido privado en Suspense.
- */
 export default function PreviewPage() {
   return (
     <Suspense fallback={<PreviewLoading />}>

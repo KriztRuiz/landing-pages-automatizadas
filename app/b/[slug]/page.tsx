@@ -10,23 +10,13 @@ import { ContactHub, type ContactHubMethod } from "@/components/contact-hub";
  *
  * Landing pública del negocio.
  *
- * Esta página:
- * 1. Busca un negocio por slug.
- * 2. Solo lo muestra si is_published = true.
- * 3. Muestra los datos públicos del negocio.
- * 4. Muestra ContactHub.
- * 5. Envía businessId a ContactHub para poder registrar métricas de clics.
- * 6. Solo carga contactos activos y aprobados:
- *    - is_enabled = true
- *    - is_verified = true
- * 7. Oculta negocios no publicados usando notFound().
- *
- * Nota importante para Next.js 16:
- * Con Cache Components activo, las consultas dinámicas deben ir dentro
- * de un componente envuelto por <Suspense>. Por eso esta página se divide en:
- *
- * - PublicLandingPage: componente ligero que solo crea el Suspense.
- * - PublicLandingContent: componente async que lee Supabase.
+ * Fase 8.3:
+ * - la landing pública respeta visual_mode;
+ * - soporta classic, modern y compact;
+ * - mantiene ContactHub fuera de contenedores con transform;
+ * - conserva métricas de clics usando businessId;
+ * - solo muestra negocios publicados;
+ * - solo muestra contactos activos y aprobados.
  */
 
 type PublicLandingPageProps = {
@@ -34,6 +24,8 @@ type PublicLandingPageProps = {
     slug: string;
   }>;
 };
+
+type LandingVisualMode = "classic" | "modern" | "compact";
 
 /**
  * Tipo mínimo del negocio público.
@@ -61,6 +53,35 @@ type PublicBusiness = {
 };
 
 /**
+ * Clases visuales por modo.
+ *
+ * Mantenemos una sola landing:
+ * - mismos datos;
+ * - misma lógica;
+ * - diferente presentación visual.
+ */
+type LandingVisualStyles = {
+  page: string;
+  container: string;
+  hero: string;
+  category: string;
+  title: string;
+  shortDescription: string;
+  heroActions: string;
+  primaryButton: string;
+  secondaryButton: string;
+  contentGrid: string;
+  section: string;
+  sectionWide: string;
+  sectionTitle: string;
+  mutedText: string;
+  serviceList: string;
+  serviceItem: string;
+  photosGrid: string;
+  photo: string;
+};
+
+/**
  * Cliente público de Supabase.
  *
  * Usamos la publishable key porque esta página es pública.
@@ -76,10 +97,140 @@ function createPublicSupabaseClient() {
 }
 
 /**
- * Pantalla temporal mientras se cargan datos públicos.
+ * Normaliza visual_mode.
  *
- * Este fallback permite que Next.js tenga una interfaz inmediata
- * mientras el componente async consulta Supabase.
+ * Si por cualquier razón llega null o un valor incorrecto,
+ * usamos classic como modo seguro.
+ */
+function normalizeLandingVisualMode(
+  value: string | null | undefined,
+): LandingVisualMode {
+  if (value === "modern") return "modern";
+  if (value === "compact") return "compact";
+
+  return "classic";
+}
+
+/**
+ * Regresa clases de Tailwind según el modo visual.
+ *
+ * No usamos librerías extra.
+ * Solo Tailwind + clases CSS simples:
+ * - lp-fade-up
+ * - lp-soft-interaction
+ */
+function getLandingVisualStyles(mode: LandingVisualMode): LandingVisualStyles {
+  if (mode === "modern") {
+    return {
+      page: "min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white",
+      container:
+        "mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8",
+      hero: "lp-fade-up overflow-hidden rounded-3xl border border-white/10 bg-white/10 px-6 py-12 shadow-2xl backdrop-blur md:px-10 md:py-16",
+      category:
+        "inline-flex rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-950",
+      title: "mt-4 max-w-4xl text-4xl font-bold tracking-tight text-white md:text-6xl",
+      shortDescription: "mt-5 max-w-2xl text-lg leading-8 text-slate-200",
+      heroActions: "mt-8 flex flex-wrap gap-3",
+      primaryButton:
+        "lp-soft-interaction inline-flex rounded-2xl bg-white px-5 py-3 text-sm font-bold text-slate-950 shadow-lg hover:shadow-xl",
+      secondaryButton:
+        "lp-soft-interaction inline-flex rounded-2xl border border-white/20 px-5 py-3 text-sm font-bold text-white hover:bg-white/10",
+      contentGrid: "grid gap-5 md:grid-cols-2",
+      section:
+        "lp-fade-up rounded-3xl border border-white/10 bg-white/10 p-6 shadow-xl backdrop-blur md:p-8",
+      sectionWide:
+        "lp-fade-up rounded-3xl border border-white/10 bg-white/10 p-6 shadow-xl backdrop-blur md:col-span-2 md:p-8",
+      sectionTitle: "text-2xl font-bold text-white",
+      mutedText: "text-slate-300",
+      serviceList: "mt-5 grid gap-3 sm:grid-cols-2",
+      serviceItem:
+        "lp-soft-interaction rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-slate-100 shadow-lg hover:shadow-2xl",
+      photosGrid: "mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3",
+      photo:
+        "lp-soft-interaction aspect-video w-full rounded-2xl border border-white/10 object-cover shadow-lg hover:shadow-2xl",
+    };
+  }
+
+  if (mode === "compact") {
+    return {
+      page: "min-h-screen bg-slate-100 text-slate-950",
+      container:
+        "mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-4 py-6 sm:px-6",
+      hero: "lp-fade-up rounded-2xl border border-slate-200 bg-white px-5 py-7 shadow-sm",
+      category:
+        "inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700",
+      title: "mt-3 text-3xl font-bold tracking-tight text-slate-950 md:text-4xl",
+      shortDescription: "mt-3 text-base leading-7 text-slate-700",
+      heroActions: "mt-6 grid gap-3 sm:grid-cols-2",
+      primaryButton:
+        "lp-soft-interaction inline-flex justify-center rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-sm",
+      secondaryButton:
+        "lp-soft-interaction inline-flex justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-950 hover:bg-slate-50",
+      contentGrid: "grid gap-4",
+      section:
+        "lp-fade-up rounded-2xl border border-slate-200 bg-white p-5 shadow-sm",
+      sectionWide:
+        "lp-fade-up rounded-2xl border border-slate-200 bg-white p-5 shadow-sm",
+      sectionTitle: "text-lg font-bold text-slate-950",
+      mutedText: "text-slate-600",
+      serviceList: "mt-4 grid gap-2",
+      serviceItem:
+        "lp-soft-interaction rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800",
+      photosGrid: "mt-4 grid gap-3",
+      photo:
+        "lp-soft-interaction aspect-video w-full rounded-xl border border-slate-200 object-cover shadow-sm",
+    };
+  }
+
+  return {
+    page: "min-h-screen bg-slate-50 text-slate-950",
+    container:
+      "mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-10 sm:px-6",
+    hero: "lp-fade-up rounded-3xl border border-slate-200 bg-white px-6 py-10 shadow-sm md:px-10 md:py-14",
+    category:
+      "inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700",
+    title: "mt-4 max-w-4xl text-4xl font-bold tracking-tight text-slate-950 md:text-6xl",
+    shortDescription: "mt-5 max-w-2xl text-lg leading-8 text-slate-700",
+    heroActions: "mt-8 flex flex-wrap gap-3",
+    primaryButton:
+      "lp-soft-interaction inline-flex rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-sm hover:shadow-md",
+    secondaryButton:
+      "lp-soft-interaction inline-flex rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-950 hover:bg-slate-50",
+    contentGrid: "grid gap-6 md:grid-cols-2",
+    section:
+      "lp-fade-up rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-8",
+    sectionWide:
+      "lp-fade-up rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:col-span-2 md:p-8",
+    sectionTitle: "text-2xl font-bold text-slate-950",
+    mutedText: "text-slate-600",
+    serviceList: "mt-5 grid gap-3 sm:grid-cols-2",
+    serviceItem:
+      "lp-soft-interaction rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 hover:shadow-md",
+    photosGrid: "mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3",
+    photo:
+      "lp-soft-interaction aspect-video w-full rounded-2xl border border-slate-200 object-cover shadow-sm hover:shadow-md",
+  };
+}
+
+/**
+ * Une las partes de la ubicación en un solo texto.
+ *
+ * Ejemplo:
+ * "Calle 1, Sabinas Hidalgo, Nuevo León, México"
+ */
+function getLocationText(business: PublicBusiness): string {
+  return [
+    business.address,
+    business.city,
+    business.state,
+    business.country,
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
+
+/**
+ * Pantalla temporal mientras se cargan datos públicos.
  */
 function PublicLandingLoading() {
   return (
@@ -102,62 +253,47 @@ function PublicLandingLoading() {
 }
 
 /**
- * Convierte el modo visual interno en una etiqueta legible.
- *
- * En esta fase todavía no hacemos 3 diseños distintos.
- * Solo mostramos el modo guardado para confirmar que el dato llega bien.
- */
-function getVisualModeLabel(visualMode: string | null): string {
-  if (visualMode === "modern") return "Moderno";
-  if (visualMode === "compact") return "Compacto";
-
-  return "Clásico";
-}
-
-/**
- * Une las partes de la ubicación en un solo texto.
- *
- * Ejemplo:
- * "Calle 1, Sabinas Hidalgo, Nuevo León, México"
- */
-function getLocationText(business: PublicBusiness): string {
-  return [
-    business.address,
-    business.city,
-    business.state,
-    business.country,
-  ]
-    .filter(Boolean)
-    .join(", ");
-}
-
-/**
  * Hero principal de la landing.
  *
  * Es la primera sección que ve el visitante.
  */
-function LandingHero({ business }: { business: PublicBusiness }) {
+function LandingHero({
+  business,
+  styles,
+}: {
+  business: PublicBusiness;
+  styles: LandingVisualStyles;
+}) {
   return (
-    <section className="rounded-3xl border bg-card px-6 py-10 shadow-sm md:px-10 md:py-14">
-      <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-        <div>
-          <p className="text-sm font-medium text-muted-foreground">
-            {business.category || "Negocio local"}
-          </p>
+    <section className={styles.hero}>
+      <p className={styles.category}>
+        {business.category || "Negocio local"}
+      </p>
 
-          <h1 className="mt-3 max-w-3xl text-4xl font-bold tracking-tight md:text-6xl">
-            {business.name}
-          </h1>
+      <h1 className={styles.title}>
+        {business.name || "Negocio local"}
+      </h1>
 
-          <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
-            {business.short_description ||
-              "Información proporcionada por el negocio."}
-          </p>
-        </div>
+      <p className={styles.shortDescription}>
+        {business.short_description ||
+          "Información proporcionada por el negocio."}
+      </p>
 
-        <div className="w-fit rounded-full border bg-background px-4 py-2 text-sm font-medium">
-          Modo {getVisualModeLabel(business.visual_mode)}
-        </div>
+      <div className={styles.heroActions}>
+        <a href="#contacto" className={styles.primaryButton}>
+          Contactar ahora
+        </a>
+
+        {business.location_url ? (
+          <a
+            href={business.location_url}
+            target="_blank"
+            rel="noreferrer"
+            className={styles.secondaryButton}
+          >
+            Ver ubicación
+          </a>
+        ) : null}
       </div>
     </section>
   );
@@ -171,7 +307,13 @@ function LandingHero({ business }: { business: PublicBusiness }) {
  * - no usamos next/image todavía;
  * - asumimos que las URLs fueron proporcionadas o autorizadas por el negocio.
  */
-function BusinessPhotos({ business }: { business: PublicBusiness }) {
+function BusinessPhotos({
+  business,
+  styles,
+}: {
+  business: PublicBusiness;
+  styles: LandingVisualStyles;
+}) {
   const photos = business.photos ?? [];
 
   if (photos.length === 0) {
@@ -179,10 +321,10 @@ function BusinessPhotos({ business }: { business: PublicBusiness }) {
   }
 
   return (
-    <section className="rounded-3xl border bg-card p-6 shadow-sm md:p-8">
-      <h2 className="text-2xl font-bold">Fotos</h2>
+    <section className={styles.sectionWide}>
+      <h2 className={styles.sectionTitle}>Fotos</h2>
 
-      <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className={styles.photosGrid}>
         {photos.map((photoUrl, index) => (
           // Para el PMV dejamos <img> porque las URLs de fotos pueden variar.
           // Configurar dominios externos para next/image lo dejamos para una fase posterior.
@@ -191,7 +333,7 @@ function BusinessPhotos({ business }: { business: PublicBusiness }) {
             key={`${photoUrl}-${index}`}
             src={photoUrl}
             alt={`Foto ${index + 1} de ${business.name || "negocio local"}`}
-            className="aspect-video w-full rounded-2xl border object-cover"
+            className={styles.photo}
           />
         ))}
       </div>
@@ -208,26 +350,67 @@ function BusinessPhotos({ business }: { business: PublicBusiness }) {
  * - cuándo atiende;
  * - qué servicios tiene.
  */
-function BusinessDetails({ business }: { business: PublicBusiness }) {
+function BusinessDetails({
+  business,
+  styles,
+  visualMode,
+}: {
+  business: PublicBusiness;
+  styles: LandingVisualStyles;
+  visualMode: LandingVisualMode;
+}) {
   const services = business.services ?? [];
   const locationText = getLocationText(business);
+  const isCompact = visualMode === "compact";
 
   return (
-    <section className="grid gap-6 md:grid-cols-2">
-      <article className="rounded-3xl border bg-card p-6 shadow-sm md:p-8">
-        <h2 className="text-2xl font-bold">Sobre el negocio</h2>
+    <section className={styles.contentGrid}>
+      {!isCompact ? (
+        <article className={styles.section}>
+          <h2 className={styles.sectionTitle}>Sobre el negocio</h2>
 
-        <p className="mt-4 whitespace-pre-line text-sm leading-7 text-muted-foreground">
-          {business.long_description ||
-            business.short_description ||
-            "Este negocio aún no agregó una descripción detallada."}
+          <p
+            className={`mt-4 whitespace-pre-line text-sm leading-7 ${styles.mutedText}`}
+          >
+            {business.long_description ||
+              business.short_description ||
+              "Este negocio aún no agregó una descripción detallada."}
+          </p>
+        </article>
+      ) : null}
+
+      <article className={styles.section}>
+        <h2 className={styles.sectionTitle}>Servicios principales</h2>
+
+        {services.length > 0 ? (
+          <ul className={styles.serviceList}>
+            {services.map((service) => (
+              <li key={service} className={styles.serviceItem}>
+                {service}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className={`mt-4 text-sm leading-7 ${styles.mutedText}`}>
+            Servicios pendientes de agregar.
+          </p>
+        )}
+      </article>
+
+      <article className={styles.section}>
+        <h2 className={styles.sectionTitle}>Horarios</h2>
+
+        <p
+          className={`mt-4 whitespace-pre-line text-sm leading-7 ${styles.mutedText}`}
+        >
+          {business.opening_hours || "Horarios pendientes de agregar."}
         </p>
       </article>
 
-      <article className="rounded-3xl border bg-card p-6 shadow-sm md:p-8">
-        <h2 className="text-2xl font-bold">Ubicación</h2>
+      <article className={styles.section}>
+        <h2 className={styles.sectionTitle}>Ubicación</h2>
 
-        <p className="mt-4 text-sm leading-7 text-muted-foreground">
+        <p className={`mt-4 text-sm leading-7 ${styles.mutedText}`}>
           {locationText || "Ubicación pendiente de agregar."}
         </p>
 
@@ -236,54 +419,78 @@ function BusinessDetails({ business }: { business: PublicBusiness }) {
             href={business.location_url}
             target="_blank"
             rel="noreferrer"
-            className="mt-5 inline-flex rounded-xl border px-4 py-2 text-sm font-medium hover:bg-muted"
+            className={`mt-5 ${styles.secondaryButton}`}
           >
             Ver ubicación autorizada
           </a>
         ) : null}
       </article>
 
-      <article className="rounded-3xl border bg-card p-6 shadow-sm md:p-8">
-        <h2 className="text-2xl font-bold">Horarios</h2>
+      {isCompact && business.long_description ? (
+        <article className={styles.section}>
+          <h2 className={styles.sectionTitle}>Sobre el negocio</h2>
 
-        <p className="mt-4 whitespace-pre-line text-sm leading-7 text-muted-foreground">
-          {business.opening_hours || "Horarios pendientes de agregar."}
-        </p>
-      </article>
-
-      <article className="rounded-3xl border bg-card p-6 shadow-sm md:p-8">
-        <h2 className="text-2xl font-bold">Servicios principales</h2>
-
-        {services.length > 0 ? (
-          <ul className="mt-4 space-y-2">
-            {services.map((service) => (
-              <li
-                key={service}
-                className="rounded-xl border bg-background px-4 py-3 text-sm"
-              >
-                {service}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-4 text-sm leading-7 text-muted-foreground">
-            Servicios pendientes de agregar.
+          <p
+            className={`mt-4 whitespace-pre-line text-sm leading-7 ${styles.mutedText}`}
+          >
+            {business.long_description}
           </p>
-        )}
-      </article>
+        </article>
+      ) : null}
     </section>
   );
 }
 
 /**
- * Contenido público real de la landing.
+ * Bloque informativo del ContactHub.
  *
- * Este componente sí es async y sí consulta Supabase.
- * Por eso debe renderizarse dentro de <Suspense>.
+ * El botón flotante real se renderiza fuera del layout animado.
+ * Esto evita que position: fixed se rompa por transform de lp-fade-up.
  */
-async function PublicLandingContent({ params }: PublicLandingPageProps) {
-  const { slug } = await params;
+function ContactInfoSection({ styles }: { styles: LandingVisualStyles }) {
+  return (
+    <section id="contacto" className={styles.sectionWide}>
+      <h2 className={styles.sectionTitle}>Centro de contacto</h2>
 
+      <p className={`mt-4 max-w-2xl text-sm leading-7 ${styles.mutedText}`}>
+        Usa el botón flotante de contacto para elegir el canal que prefieras.
+        El negocio solo muestra métodos activos y aprobados.
+      </p>
+    </section>
+  );
+}
+
+/**
+ * Permite a Next intentar prerenderizar slugs publicados.
+ *
+ * Si algo falla durante build, regresamos arreglo vacío para no romper.
+ */
+export async function generateStaticParams() {
+  const supabase = createPublicSupabaseClient();
+
+  const { data, error } = await supabase
+    .from("businesses")
+    .select("slug")
+    .eq("is_published", true)
+    .not("slug", "is", null);
+
+  if (error || !data) {
+    return [];
+  }
+
+  return data
+    .map((business) => ({
+      slug: business.slug,
+    }))
+    .filter((item): item is { slug: string } => Boolean(item.slug));
+}
+
+/**
+ * Contenido real de la landing pública.
+ *
+ * Aquí consultamos Supabase usando el slug recibido por URL.
+ */
+async function PublicLandingContent({ slug }: { slug: string }) {
   const supabase = createPublicSupabaseClient();
 
   const { data: business, error: businessError } = await supabase
@@ -312,12 +519,6 @@ async function PublicLandingContent({ params }: PublicLandingPageProps) {
     .eq("is_published", true)
     .maybeSingle<PublicBusiness>();
 
-  /**
-   * No mostramos errores técnicos al visitante.
-   *
-   * Para el visitante, un negocio inexistente o no publicado
-   * simplemente debe comportarse como página no encontrada.
-   */
   if (businessError || !business) {
     notFound();
   }
@@ -340,39 +541,55 @@ async function PublicLandingContent({ params }: PublicLandingPageProps) {
     .order("created_at", { ascending: true })
     .returns<ContactHubMethod[]>();
 
+  const visualMode = normalizeLandingVisualMode(business.visual_mode);
+  const styles = getLandingVisualStyles(visualMode);
+
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8 pb-28 md:py-12">
-      <LandingHero business={business} />
+    <main className={styles.page}>
+      <div className={styles.container}>
+        <LandingHero business={business} styles={styles} />
 
-      <BusinessPhotos business={business} />
+        <BusinessPhotos business={business} styles={styles} />
 
-      <BusinessDetails business={business} />
+        <BusinessDetails
+          business={business}
+          styles={styles}
+          visualMode={visualMode}
+        />
 
-      <section className="rounded-3xl border bg-card p-6 shadow-sm md:p-8">
-        {/*
-          ContactHub renderiza los botones/enlaces de contacto.
+        <ContactInfoSection styles={styles} />
+      </div>
 
-          Para registrar métricas, le pasamos el id del negocio publicado.
-          El componente ContactHub debe usar este businessId junto con cada
-          contact.id y contact.type cuando el visitante haga clic.
-        */}
-        <ContactHub businessId={business.id} contacts={contacts ?? []} />
-      </section>
+      {/*
+        ContactHub debe ir fuera de tarjetas/secciones animadas.
+
+        Si lo metemos dentro de una sección con transform,
+        su position: fixed puede quedar atrapado y dejar de flotar
+        correctamente en toda la pantalla.
+      */}
+      <ContactHub
+  businessId={business.id}
+  contacts={contacts ?? []}
+  visualMode={visualMode}
+  showInlinePanel={false}
+/>
     </main>
   );
 }
-
 /**
  * Página principal de /b/[slug].
  *
- * No consulta Supabase directamente.
- * Solo crea el límite de Suspense para que Next.js pueda manejar
- * correctamente los datos dinámicos en Cache Components.
+ * Con Cache Components activo, dejamos la consulta dinámica dentro
+ * de un componente async envuelto por Suspense.
  */
-export default function PublicLandingPage({ params }: PublicLandingPageProps) {
+export default async function PublicLandingPage({
+  params,
+}: PublicLandingPageProps) {
+  const { slug } = await params;
+
   return (
     <Suspense fallback={<PublicLandingLoading />}>
-      <PublicLandingContent params={params} />
+      <PublicLandingContent slug={slug} />
     </Suspense>
   );
 }

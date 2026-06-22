@@ -11,17 +11,20 @@
  * - si recibe businessId, registra clics;
  * - si NO recibe businessId, solo muestra enlaces normales.
  *
+ * En Fase 8 agregamos:
+ * - soporte para modos visuales;
+ * - panel flotante con estilos por modo;
+ * - opción para ocultar el panel informativo interno.
+ *
  * Esto permite que:
  * - la landing pública registre métricas;
- * - la vista previa NO registre métricas falsas.
- *
- * Para mantener el PMV simple:
- * - no usamos librerías extra;
- * - no usamos estado de React;
- * - usamos <details> y <summary> para abrir/cerrar el panel.
+ * - la vista previa NO registre métricas falsas;
+ * - el ContactHub se adapte a classic, modern y compact;
+ * - más adelante podamos agregar más modos sin reescribir el componente.
  */
 
 import type { ReactNode } from "react";
+
 import { TrackedContactLink } from "@/components/tracked-contact-link";
 import { isContactType } from "@/lib/contact-types";
 
@@ -33,16 +36,53 @@ export type ContactHubMethod = {
   url: string | null;
 };
 
+/**
+ * Modos visuales que el ContactHub entiende actualmente.
+ *
+ * Cuando agreguemos más modos, por ejemplo:
+ * - "elegant"
+ * - "restaurant"
+ * - "showcase"
+ *
+ * solo tendremos que:
+ * 1. agregar el valor aquí;
+ * 2. agregar sus clases en CONTACT_HUB_STYLES;
+ * 3. pasar ese modo desde la landing.
+ */
+export type ContactHubVisualMode = "classic" | "modern" | "compact";
+
 type ContactHubProps = {
   /**
    * businessId es opcional porque la vista previa no debe contar clics.
    *
    * Uso correcto:
-   * - Landing pública: <ContactHub businessId={business.id} contacts={contacts} />
-   * - Preview: <ContactHub contacts={contacts} />
+   * - Landing pública:
+   *   <ContactHub businessId={business.id} contacts={contacts} />
+   *
+   * - Preview:
+   *   <ContactHub contacts={contacts} />
    */
   businessId?: string;
+
   contacts: ContactHubMethod[];
+
+  /**
+   * visualMode controla cómo se ve el ContactHub.
+   *
+   * Si no se manda, usamos "classic" como modo seguro.
+   */
+  visualMode?: ContactHubVisualMode;
+
+  /**
+   * showInlinePanel controla si ContactHub muestra también
+   * una tarjeta informativa dentro del flujo de la página.
+   *
+   * Para landing pública y preview de Fase 8 conviene usar false,
+   * porque esas páginas ya tienen su propia sección "Centro de contacto".
+   *
+   * El botón flotante siempre se muestra si hay contactos.
+   */
+  showInlinePanel?: boolean;
 };
 
 type ContactLinkProps = {
@@ -51,6 +91,123 @@ type ContactLinkProps = {
   className: string;
   children: ReactNode;
 };
+
+type ContactHubStyleSet = {
+  emptyState: string;
+  inlinePanel: string;
+  inlineTitle: string;
+  inlineText: string;
+  inlineGrid: string;
+  inlineLink: string;
+  floatingDetails: string;
+  floatingSummary: string;
+  floatingPanel: string;
+  floatingTitle: string;
+  floatingLink: string;
+  icon: string;
+  secondaryText: string;
+};
+
+/**
+ * Mapa central de estilos del ContactHub.
+ *
+ * Esta estructura prepara el proyecto para crecer.
+ *
+ * En lugar de llenar el componente con muchos if,
+ * cada modo vive como un bloque de clases.
+ *
+ * Para agregar un nuevo modo después:
+ *
+ * restaurant: {
+ *   emptyState: "...",
+ *   inlinePanel: "...",
+ *   ...
+ * }
+ *
+ * Así el componente sigue limpio y modificable.
+ */
+const CONTACT_HUB_STYLES: Record<ContactHubVisualMode, ContactHubStyleSet> = {
+  classic: {
+    emptyState:
+      "rounded-2xl border border-dashed border-slate-300 bg-white p-5 text-slate-950 shadow-sm",
+    inlinePanel:
+      "rounded-2xl border border-slate-200 bg-white p-5 text-slate-950 shadow-sm",
+    inlineTitle: "text-lg font-semibold text-slate-950",
+    inlineText: "mt-2 text-sm text-slate-600",
+    inlineGrid: "mt-4 grid gap-3 sm:grid-cols-2",
+    inlineLink:
+      "lp-soft-interaction flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm font-medium text-slate-950 hover:bg-slate-50",
+    floatingDetails:
+      "fixed bottom-5 right-5 z-50 w-[calc(100%-2.5rem)] max-w-sm overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-2xl",
+    floatingSummary:
+      "cursor-pointer list-none rounded-2xl bg-slate-950 px-5 py-4 text-center text-sm font-semibold text-white",
+    floatingPanel: "space-y-3 p-4",
+    floatingTitle: "text-sm font-semibold text-slate-950",
+    floatingLink:
+      "lp-soft-interaction flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-sm font-medium text-slate-950 hover:bg-slate-50",
+    icon: "flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-base",
+    secondaryText: "text-slate-500",
+  },
+
+  modern: {
+    emptyState:
+      "rounded-2xl border border-white/10 bg-white/10 p-5 text-white shadow-xl backdrop-blur",
+    inlinePanel:
+      "rounded-2xl border border-white/10 bg-white/10 p-5 text-white shadow-xl backdrop-blur",
+    inlineTitle: "text-lg font-semibold text-white",
+    inlineText: "mt-2 text-sm text-slate-300",
+    inlineGrid: "mt-4 grid gap-3 sm:grid-cols-2",
+    inlineLink:
+      "lp-soft-interaction flex items-center gap-3 rounded-xl border border-white/10 bg-white/10 p-4 text-sm font-medium text-white hover:bg-white/15",
+    floatingDetails:
+      "fixed bottom-5 right-5 z-50 w-[calc(100%-2.5rem)] max-w-sm overflow-hidden rounded-2xl border border-white/10 bg-slate-950 text-white shadow-2xl",
+    floatingSummary:
+      "cursor-pointer list-none rounded-2xl bg-white px-5 py-4 text-center text-sm font-bold text-slate-950",
+    floatingPanel: "space-y-3 bg-slate-950 p-4",
+    floatingTitle: "text-sm font-semibold text-white",
+    floatingLink:
+      "lp-soft-interaction flex items-center gap-3 rounded-xl border border-white/10 bg-white/10 p-3 text-sm font-medium text-white hover:bg-white/15",
+    icon: "flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/10 text-base",
+    secondaryText: "text-slate-300",
+  },
+
+  compact: {
+    emptyState:
+      "rounded-xl border border-dashed border-slate-300 bg-white p-4 text-slate-950 shadow-sm",
+    inlinePanel:
+      "rounded-xl border border-slate-200 bg-white p-4 text-slate-950 shadow-sm",
+    inlineTitle: "text-base font-semibold text-slate-950",
+    inlineText: "mt-1 text-sm text-slate-600",
+    inlineGrid: "mt-3 grid gap-2",
+    inlineLink:
+      "lp-soft-interaction flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-medium text-slate-950 hover:bg-white",
+    floatingDetails:
+      "fixed bottom-4 right-4 z-50 w-[calc(100%-2rem)] max-w-xs overflow-hidden rounded-xl border border-slate-200 bg-white text-slate-950 shadow-2xl",
+    floatingSummary:
+      "cursor-pointer list-none rounded-xl bg-slate-950 px-4 py-3 text-center text-sm font-semibold text-white",
+    floatingPanel: "space-y-2 p-3",
+    floatingTitle: "text-sm font-semibold text-slate-950",
+    floatingLink:
+      "lp-soft-interaction flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm font-medium text-slate-950 hover:bg-slate-50",
+    icon: "flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-base",
+    secondaryText: "text-slate-500",
+  },
+};
+
+/**
+ * Normaliza el modo visual.
+ *
+ * Esto evita que el componente truene si recibe undefined
+ * o si más adelante llega un dato extraño desde la base.
+ */
+function getContactHubStyles(
+  visualMode: ContactHubVisualMode | undefined,
+): ContactHubStyleSet {
+  if (visualMode === "modern") return CONTACT_HUB_STYLES.modern;
+  if (visualMode === "compact") return CONTACT_HUB_STYLES.compact;
+
+  return CONTACT_HUB_STYLES.classic;
+}
 
 /**
  * Convierte el tipo interno en una etiqueta legible.
@@ -154,13 +311,20 @@ function ContactLink({
   );
 }
 
-export function ContactHub({ businessId, contacts }: ContactHubProps) {
+export function ContactHub({
+  businessId,
+  contacts,
+  visualMode = "classic",
+  showInlinePanel = true,
+}: ContactHubProps) {
+  const styles = getContactHubStyles(visualMode);
+
   if (contacts.length === 0) {
     return (
-      <section className="rounded-2xl border border-dashed bg-muted/20 p-5">
-        <h3 className="text-lg font-semibold">ContactHub</h3>
+      <section className={styles.emptyState}>
+        <h3 className={styles.inlineTitle}>Centro de contacto</h3>
 
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className={styles.inlineText}>
           Aún no hay métodos de contacto activos y aprobados para mostrar.
         </p>
       </section>
@@ -169,57 +333,57 @@ export function ContactHub({ businessId, contacts }: ContactHubProps) {
 
   return (
     <>
-      <section className="rounded-2xl border bg-card p-5 shadow-sm">
-        <h3 className="text-lg font-semibold">Centro de contacto</h3>
+      {showInlinePanel ? (
+        <section className={styles.inlinePanel}>
+          <h3 className={styles.inlineTitle}>Centro de contacto</h3>
 
-        <p className="mt-2 text-sm text-muted-foreground">
-          El visitante podrá elegir el canal que prefiera.
-        </p>
+          <p className={styles.inlineText}>
+            El visitante podrá elegir el canal que prefiera.
+          </p>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className={styles.inlineGrid}>
+            {contacts.map((contact) => (
+              <ContactLink
+                key={contact.id}
+                businessId={businessId}
+                contact={contact}
+                className={styles.inlineLink}
+              >
+                <span className={styles.icon}>
+                  {getContactIcon(contact.type)}
+                </span>
+
+                <span>
+                  <span className="block">
+                    {contact.label || getContactTypeLabel(contact.type)}
+                  </span>
+
+                  <span
+                    className={`block text-xs font-normal ${styles.secondaryText}`}
+                  >
+                    {getContactTypeLabel(contact.type)}
+                  </span>
+                </span>
+              </ContactLink>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <details className={styles.floatingDetails}>
+        <summary className={styles.floatingSummary}>Contactar</summary>
+
+        <div className={styles.floatingPanel}>
+          <p className={styles.floatingTitle}>Elige un canal</p>
+
           {contacts.map((contact) => (
             <ContactLink
               key={contact.id}
               businessId={businessId}
               contact={contact}
-              className="flex items-center gap-3 rounded-xl border bg-background p-4 text-sm font-medium hover:bg-muted"
+              className={styles.floatingLink}
             >
-              <span className="flex h-9 w-9 items-center justify-center rounded-full border bg-muted text-base">
-                {getContactIcon(contact.type)}
-              </span>
-
-              <span>
-                <span className="block">
-                  {contact.label || getContactTypeLabel(contact.type)}
-                </span>
-
-                <span className="block text-xs font-normal text-muted-foreground">
-                  {getContactTypeLabel(contact.type)}
-                </span>
-              </span>
-            </ContactLink>
-          ))}
-        </div>
-      </section>
-
-      <details className="fixed bottom-5 right-5 z-50 w-[calc(100%-2.5rem)] max-w-sm rounded-2xl border bg-background shadow-lg">
-        <summary className="cursor-pointer list-none rounded-2xl bg-foreground px-5 py-4 text-center text-sm font-semibold text-background">
-          Contactar
-        </summary>
-
-        <div className="space-y-3 p-4">
-          <p className="text-sm font-medium">Elige un canal</p>
-
-          {contacts.map((contact) => (
-            <ContactLink
-              key={contact.id}
-              businessId={businessId}
-              contact={contact}
-              className="flex items-center gap-3 rounded-xl border p-3 text-sm font-medium hover:bg-muted"
-            >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full border bg-muted">
-                {getContactIcon(contact.type)}
-              </span>
+              <span className={styles.icon}>{getContactIcon(contact.type)}</span>
 
               <span>{contact.label || getContactTypeLabel(contact.type)}</span>
             </ContactLink>

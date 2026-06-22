@@ -66,3 +66,75 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Fase 8.1 — Animaciones simples del PMV */
+
+/*
+  Animación para que las secciones aparezcan suavemente.
+  La usaremos en landing, preview y tarjetas importantes.
+*/
+@keyframes lp-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/*
+  Clase reutilizable:
+  - opacity inicial
+  - pequeño movimiento hacia arriba
+  - duración corta
+*/
+.lp-fade-up {
+  animation: lp-fade-up 420ms ease-out both;
+}
+
+/*
+  Clase para botones o tarjetas interactivas.
+  Da una sensación más profesional sin agregar librerías.
+*/
+.lp-soft-interaction {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.lp-soft-interaction:hover {
+  transform: translateY(-2px);
+}
+
+/*
+  Clase para acciones táctiles.
+  En móvil ayuda a que el botón se sienta responsivo.
+*/
+.lp-soft-interaction:active {
+  transform: translateY(0) scale(0.99);
+}
+
+/*
+  Respetamos usuarios que prefieren menos movimiento.
+  Esto mejora accesibilidad y evita molestias visuales.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .lp-fade-up {
+    animation: none;
+  }
+
+  .lp-soft-interaction {
+    transition: none;
+  }
+
+  .lp-soft-interaction:hover,
+  .lp-soft-interaction:active {
+    transform: none;
+  }
+}

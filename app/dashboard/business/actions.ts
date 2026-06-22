@@ -31,6 +31,8 @@ export type BusinessFormState = {
   };
 };
 
+type VisualMode = "classic" | "modern" | "compact";
+
 /**
  * Estructura limpia y validada antes de guardar en Supabase.
  *
@@ -49,7 +51,7 @@ type ValidBusinessData = {
   location_url: string | null;
   opening_hours: string | null;
   services: string[];
-  visual_mode: "classic" | "modern" | "compact";
+  visual_mode: VisualMode;
 };
 
 /**
@@ -122,7 +124,7 @@ function isValidOptionalUrl(value: string | null): boolean {
  *
  * Esto evita mandar datos inválidos a Supabase.
  */
-function normalizeVisualMode(value: string): "classic" | "modern" | "compact" {
+function normalizeVisualMode(value: FormDataEntryValue | null): VisualMode {
   if (value === "modern") return "modern";
   if (value === "compact") return "compact";
 
@@ -158,7 +160,7 @@ function validateBusinessForm(formData: FormData): {
   const location_url = getText(formData, "location_url") || null;
   const opening_hours = getText(formData, "opening_hours") || null;
   const services = parseServices(getText(formData, "services"));
-  const visual_mode = normalizeVisualMode(getText(formData, "visual_mode"));
+  const visual_mode = normalizeVisualMode(formData.get("visual_mode"));
 
   const errors: BusinessFormState["errors"] = {};
 
@@ -268,7 +270,7 @@ export async function saveBusiness(
    */
   const { data: existingBusiness, error: readError } = await supabase
     .from("businesses")
-    .select("id")
+    .select("id, slug")
     .eq("owner_id", userId)
     .maybeSingle();
 
@@ -311,6 +313,18 @@ export async function saveBusiness(
         },
       };
     }
+
+    /**
+     * Si el negocio ya estaba publicado, revalidamos también su URL pública.
+     * Esto ayuda a que el cambio de modo visual se refleje en /b/[slug].
+     */
+    if (existingBusiness.slug) {
+      revalidatePath(`/b/${existingBusiness.slug}`);
+    }
+
+    if (validation.data.slug !== existingBusiness.slug) {
+      revalidatePath(`/b/${validation.data.slug}`);
+    }
   } else {
     /**
      * Creamos el negocio del usuario.
@@ -341,6 +355,8 @@ export async function saveBusiness(
         },
       };
     }
+
+    revalidatePath(`/b/${validation.data.slug}`);
   }
 
   /**

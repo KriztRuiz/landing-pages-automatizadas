@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 
 import { saveBusiness, type BusinessFormState } from "./actions";
+import { VisualModeSelector } from "./visual-mode-selector";
 
 /**
  * Tipo mínimo del negocio que recibiremos desde page.tsx.
@@ -79,11 +80,15 @@ function createSlug(value: string): string {
 }
 
 /**
- * Formulario principal de Fase 3.
+ * Formulario principal del negocio.
  *
  * Este componente es cliente porque usa:
  * - useActionState para llamar la Server Action.
  * - useState para ayudar a generar el slug.
+ *
+ * En Fase 8 agregamos:
+ * - selector visual para classic / modern / compact.
+ * - clases de interacción suave.
  */
 export function BusinessForm({ business }: BusinessFormProps) {
   const [state, formAction, isPending] = useActionState(
@@ -98,7 +103,7 @@ export function BusinessForm({ business }: BusinessFormProps) {
     <form action={formAction} className="space-y-8">
       {state.message ? (
         <div
-          className={`rounded-lg border p-4 text-sm ${
+          className={`lp-fade-up rounded-lg border p-4 text-sm ${
             state.ok
               ? "border-green-200 bg-green-50 text-green-800"
               : "border-red-200 bg-red-50 text-red-800"
@@ -112,7 +117,7 @@ export function BusinessForm({ business }: BusinessFormProps) {
         </div>
       ) : null}
 
-      <section className="rounded-xl border bg-card p-5 shadow-sm">
+      <section className="lp-fade-up rounded-xl border bg-card p-5 shadow-sm">
         <h2 className="text-lg font-semibold">Información básica</h2>
 
         <p className="mt-1 text-sm text-muted-foreground">
@@ -130,7 +135,7 @@ export function BusinessForm({ business }: BusinessFormProps) {
               name="name"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              className="mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"
+              className="mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none transition focus:border-foreground"
               placeholder="Ej. Taquería El Primo"
             />
 
@@ -150,14 +155,14 @@ export function BusinessForm({ business }: BusinessFormProps) {
                 name="slug"
                 value={slug}
                 onChange={(event) => setSlug(event.target.value)}
-                className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"
+                className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none transition focus:border-foreground"
                 placeholder="taqueria-el-primo"
               />
 
               <button
                 type="button"
                 onClick={() => setSlug(createSlug(name))}
-                className="rounded-lg border px-3 py-2 text-sm font-medium hover:bg-muted"
+                className="lp-soft-interaction rounded-lg border px-3 py-2 text-sm font-medium hover:bg-muted"
               >
                 Generar
               </button>
@@ -181,7 +186,7 @@ export function BusinessForm({ business }: BusinessFormProps) {
               id="category"
               name="category"
               defaultValue={business?.category ?? ""}
-              className="mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"
+              className="mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none transition focus:border-foreground"
             >
               <option value="">Selecciona una categoría</option>
 
@@ -211,7 +216,7 @@ export function BusinessForm({ business }: BusinessFormProps) {
               id="short_description"
               name="short_description"
               defaultValue={business?.short_description ?? ""}
-              className="mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"
+              className="mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none transition focus:border-foreground"
               placeholder="Ej. Tacos, tortas y gringas al carbón en Sabinas Hidalgo."
             />
 
@@ -235,14 +240,14 @@ export function BusinessForm({ business }: BusinessFormProps) {
               name="long_description"
               defaultValue={business?.long_description ?? ""}
               rows={4}
-              className="mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"
+              className="mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none transition focus:border-foreground"
               placeholder="Cuenta brevemente la historia, especialidad o ventaja del negocio."
             />
           </div>
         </div>
       </section>
 
-      <section className="rounded-xl border bg-card p-5 shadow-sm">
+      <section className="lp-fade-up rounded-xl border bg-card p-5 shadow-sm">
         <h2 className="text-lg font-semibold">Ubicación y atención</h2>
 
         <p className="mt-1 text-sm text-muted-foreground">
@@ -259,7 +264,7 @@ export function BusinessForm({ business }: BusinessFormProps) {
               id="address"
               name="address"
               defaultValue={business?.address ?? ""}
-              className="mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"
+              className="mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none transition focus:border-foreground"
               placeholder="Ej. Centro de Sabinas Hidalgo o servicio a domicilio"
             />
           </div>
@@ -273,7 +278,7 @@ export function BusinessForm({ business }: BusinessFormProps) {
               id="city"
               name="city"
               defaultValue={business?.city ?? ""}
-              className="mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"
+              className="mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none transition focus:border-foreground"
               placeholder="Sabinas Hidalgo"
             />
           </div>
@@ -287,7 +292,7 @@ export function BusinessForm({ business }: BusinessFormProps) {
               id="state"
               name="state"
               defaultValue={business?.state ?? ""}
-              className="mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"
+              className="mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none transition focus:border-foreground"
               placeholder="Nuevo León"
             />
           </div>
@@ -301,7 +306,7 @@ export function BusinessForm({ business }: BusinessFormProps) {
               id="country"
               name="country"
               defaultValue={business?.country ?? "México"}
-              className="mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"
+              className="mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none transition focus:border-foreground"
             />
           </div>
 
@@ -314,7 +319,7 @@ export function BusinessForm({ business }: BusinessFormProps) {
               id="location_url"
               name="location_url"
               defaultValue={business?.location_url ?? ""}
-              className="mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"
+              className="mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none transition focus:border-foreground"
               placeholder="https://..."
             />
 
@@ -338,67 +343,55 @@ export function BusinessForm({ business }: BusinessFormProps) {
               name="opening_hours"
               defaultValue={business?.opening_hours ?? ""}
               rows={3}
-              className="mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"
+              className="mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none transition focus:border-foreground"
               placeholder={`Lunes a viernes: 9:00 am - 6:00 pm\nSábado: 9:00 am - 2:00 pm`}
             />
           </div>
         </div>
       </section>
 
-      <section className="rounded-xl border bg-card p-5 shadow-sm">
-        <h2 className="text-lg font-semibold">Servicios y estilo</h2>
+      <section className="lp-fade-up rounded-xl border bg-card p-5 shadow-sm">
+        <h2 className="text-lg font-semibold">Servicios</h2>
 
-        <div className="mt-5 grid gap-5 md:grid-cols-2">
-          <div className="md:col-span-2">
-            <label htmlFor="services" className="block text-sm font-medium">
-              Servicios principales
-            </label>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Escribe los servicios principales del negocio. Cada línea será un
+          servicio diferente en la landing.
+        </p>
 
-            <textarea
-              id="services"
-              name="services"
-              defaultValue={servicesToText(business?.services ?? null)}
-              rows={5}
-              className="mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"
-              placeholder={`Servicio 1\nServicio 2\nServicio 3`}
-            />
+        <div className="mt-5">
+          <label htmlFor="services" className="block text-sm font-medium">
+            Servicios principales
+          </label>
 
-            <p className="mt-1 text-xs text-muted-foreground">
-              Escribe un servicio por línea.
-            </p>
-          </div>
+          <textarea
+            id="services"
+            name="services"
+            defaultValue={servicesToText(business?.services ?? null)}
+            rows={5}
+            className="mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none transition focus:border-foreground"
+            placeholder={`Servicio 1\nServicio 2\nServicio 3`}
+          />
 
-          <div>
-            <label htmlFor="visual_mode" className="block text-sm font-medium">
-              Modo visual
-            </label>
-
-            <select
-              id="visual_mode"
-              name="visual_mode"
-              defaultValue={business?.visual_mode ?? "classic"}
-              className="mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"
-            >
-              <option value="classic">Clásico</option>
-              <option value="modern">Moderno</option>
-              <option value="compact">Compacto</option>
-            </select>
-          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Escribe un servicio por línea.
+          </p>
         </div>
       </section>
+
+      <VisualModeSelector currentMode={business?.visual_mode} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-lg bg-foreground px-5 py-3 text-sm font-semibold text-background hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          className="lp-soft-interaction rounded-lg bg-foreground px-5 py-3 text-sm font-semibold text-background hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? "Guardando..." : "Guardar negocio"}
         </button>
 
         <Link
           href="/dashboard"
-          className="rounded-lg border px-5 py-3 text-center text-sm font-semibold hover:bg-muted"
+          className="lp-soft-interaction rounded-lg border px-5 py-3 text-center text-sm font-semibold hover:bg-muted"
         >
           Volver al panel
         </Link>
